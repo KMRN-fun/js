@@ -373,7 +373,8 @@
         html += "</table>";
 
         $("#MRN").append(html);
-
+		$("#MRN").before("<div>"+$(".detail_info h3").text()+"</div>"); //대회제목추가
+		
 		document.getElementById("MRN_TABLE").scrollIntoView({
 		    behavior: "smooth",
 		    block: "start"
