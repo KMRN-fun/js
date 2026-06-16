@@ -323,7 +323,7 @@
 
         html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
         html += "<tr>";
-        html += "<td rowspan='2'>순번</td>";
+        html += "<td rowspan='2'>"+new Date().toLocaleString('sv')+"</td>";
 
         tabResults.forEach(function (tab) {
             html += "<td colspan='2'>" + tab.name + "</td>";
