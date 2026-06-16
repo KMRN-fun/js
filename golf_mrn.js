@@ -1,4 +1,4 @@
-(function () {
+//(function () {
 
     var WAIT_TAB = 1200;
     var WAIT_PAGE = 1500;
@@ -398,4 +398,4 @@
         alert("실행 중 오류 발생. 콘솔을 확인하세요.");
     });
 
-})();
+//})();
