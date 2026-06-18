@@ -2,7 +2,7 @@
 
     var WAIT_TAB = 500;
     var WAIT_PAGE = 500;
-    var WAIT_CHANGE_TIMEOUT = 1500;
+    var WAIT_CHANGE_TIMEOUT = 1200;
 
     function loadScript(src) {
         return new Promise(function (resolve, reject) {
@@ -145,68 +145,83 @@
         return false;
     }
 
-    async function movePageAndCollect(pageNo, subTabName) {
-        var beforeSignature = getCurrentTableSignature();
+	function rowsSignature(rows) {
+	    return rows.map(function (r) {
+	        return r.nick + "|" + r.value;
+	    }).join("||");
+	}
+async function movePageAndCollect(pageNo, subTabName, beforeRows) {
+    var beforeSig = rowsSignature(beforeRows);
 
-        var clicked = clickPageNo(pageNo);
-
-        if (!clicked) {
-            return [];
-        }
+    for (var retry = 0; retry < 3; retry++) {
+        clickPageNo(pageNo);
 
         await sleep(WAIT_PAGE);
 
-        var changed = await waitTableChanged(beforeSignature);
+        var afterRows = collectCurrentRows(subTabName);
+        var afterSig = rowsSignature(afterRows);
 
-        if (!changed) {
-            console.warn(subTabName + " " + pageNo + "페이지 변경 감지 실패. 재시도");
+        if (afterRows.length > 0 && afterSig !== beforeSig) {
+            console.log(
+                "수집:",
+                subTabName,
+                pageNo + "페이지",
+                afterRows.length + "건",
+                "retry=" + retry
+            );
 
-            beforeSignature = getCurrentTableSignature();
-
-            clickPageNo(pageNo);
-
-            await sleep(WAIT_PAGE);
-
-            changed = await waitTableChanged(beforeSignature);
+            return afterRows;
         }
 
-        if (!changed) {
-            console.warn(subTabName + " " + pageNo + "페이지 변경 실패. 중복 방지로 skip");
-            return [];
-        }
-
-        var rows = collectCurrentRows(subTabName);
-
-        console.log("수집:", subTabName, pageNo + "페이지", rows.length + "건");
-
-        return rows;
-    }
-
-    async function collectPages(subTabName) {
-        var rows = [];
+        console.warn(
+            subTabName,
+            pageNo + "페이지 데이터 동일. 재시도",
+            retry + 1
+        );
 
         await sleep(300);
-
-        var page1Rows = collectCurrentRows(subTabName);
-
-        console.log("수집:", subTabName, "1페이지", page1Rows.length + "건");
-
-        rows = rows.concat(page1Rows);
-
-        var pageNumbers = getPageNumbers();
-
-        for (var i = 0; i < pageNumbers.length; i++) {
-            var pageNo = pageNumbers[i];
-
-            if (pageNo === 1) continue;
-
-            var pageRows = await movePageAndCollect(pageNo, subTabName);
-
-            rows = rows.concat(pageRows);
-        }
-
-        return rows;
     }
+
+    console.warn(
+        subTabName,
+        pageNo + "페이지 최종 실패. 중복 방지로 skip"
+    );
+
+    return [];
+}
+
+async function collectPages(subTabName) {
+    var rows = [];
+
+    await sleep(300);
+
+    var currentRows = collectCurrentRows(subTabName);
+
+    console.log("수집:", subTabName, "1페이지", currentRows.length + "건");
+
+    rows = rows.concat(currentRows);
+
+    var pageNumbers = getPageNumbers();
+
+    for (var i = 0; i < pageNumbers.length; i++) {
+        var pageNo = pageNumbers[i];
+
+        if (pageNo === 1) continue;
+
+        var pageRows = await movePageAndCollect(
+            pageNo,
+            subTabName,
+            currentRows
+        );
+
+        if (pageRows.length > 0) {
+            rows = rows.concat(pageRows);
+            currentRows = pageRows;
+        }
+    }
+
+    return rows;
+}
 
 	async function collectBuddyRowsFromTotalTab() {
 		var buddyRows = [];
