@@ -1,8 +1,8 @@
 //(function () {
 
-    var WAIT_TAB = 1200;
-    var WAIT_PAGE = 1500;
-    var WAIT_CHANGE_TIMEOUT = 5000;
+    var WAIT_TAB = 500;
+    var WAIT_PAGE = 500;
+    var WAIT_CHANGE_TIMEOUT = 1500;
 
     function loadScript(src) {
         return new Promise(function (resolve, reject) {
