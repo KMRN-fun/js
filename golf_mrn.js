@@ -315,89 +315,112 @@ async function collectPages(subTabName) {
             buddyRows: buddyRows
         };
     }
+function drawOneTable(result) {
+    $("#MRN").empty();
 
-    function drawOneTable(result) {
-        $("#MRN").empty();
+    var tabResults = result.tabResults || [];
+    var buddyRows = result.buddyRows || [];
 
-        var tabResults = result.tabResults || [];
-        var buddyRows = result.buddyRows || [];
+    var totalTab = tabResults.filter(function (tab) {
+        return tab.name === "합산";
+    })[0];
 
-        var maxRow = 0;
+    var otherTabs = tabResults.filter(function (tab) {
+        return tab.name !== "합산";
+    });
 
-        tabResults.forEach(function (tab) {
-            if (tab.rows.length > maxRow) {
-                maxRow = tab.rows.length;
-            }
-        });
+    var maxRow = 0;
 
-        if (buddyRows.length > maxRow) {
-            maxRow = buddyRows.length;
+    tabResults.forEach(function (tab) {
+        if (tab.rows.length > maxRow) maxRow = tab.rows.length;
+    });
+
+    if (buddyRows.length > maxRow) maxRow = buddyRows.length;
+
+    var html = "";
+
+    html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
+    html += "<tr>";
+    html += "<td rowspan='2'>순번</td>";
+
+    if (totalTab) {
+        html += "<td colspan='2'>합산</td>";
+    }
+
+    html += "<td colspan='2'>多기록</td>";
+
+    otherTabs.forEach(function (tab) {
+        html += "<td colspan='2'>" + tab.name + "</td>";
+    });
+
+    html += "</tr>";
+
+    html += "<tr>";
+
+    if (totalTab) {
+        html += "<td>별명</td>";
+        html += "<td>라운드수</td>";
+    }
+
+    html += "<td>별명</td>";
+    html += "<td>버디갯수</td>";
+
+    otherTabs.forEach(function (tab) {
+        html += "<td>별명</td>";
+        html += "<td>" + tab.name + "</td>";
+    });
+
+    html += "</tr>";
+
+    for (var i = 0; i < maxRow; i++) {
+        html += "<tr>";
+        html += "<td>" + (i + 1) + "</td>";
+
+        if (totalTab && totalTab.rows[i]) {
+            html += "<td>" + totalTab.rows[i].nick + "</td>";
+            html += "<td>" + totalTab.rows[i].value + "</td>";
+        } else if (totalTab) {
+            html += "<td></td><td></td>";
         }
 
-        var html = "";
+        var buddy = buddyRows[i];
 
-        html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
-        html += "<tr>";
-        html += "<td rowspan='2'>순번</td>";
+        if (buddy) {
+            html += "<td>" + buddy.nick + "</td>";
+            html += "<td>" + buddy.value + "</td>";
+        } else {
+            html += "<td></td><td></td>";
+        }
 
-        tabResults.forEach(function (tab) {
-            html += "<td colspan='2'>" + tab.name + "</td>";
-        });
+        otherTabs.forEach(function (tab) {
+            var row = tab.rows[i];
 
-        html += "<td colspan='2'>多기록</td>";
-        html += "</tr>";
-
-        html += "<tr>";
-
-        tabResults.forEach(function (tab) {
-            html += "<td>별명</td>";
-            html += "<td>" + (tab.name === "합산" ? "라운드수" : tab.name) + "</td>";
-        });
-
-        html += "<td>별명</td>";
-        html += "<td>버디갯수</td>";
-        html += "</tr>";
-
-        for (var i = 0; i < maxRow; i++) {
-            html += "<tr>";
-            html += "<td>" + (i + 1) + "</td>";
-
-            tabResults.forEach(function (tab) {
-                var row = tab.rows[i];
-
-                if (row) {
-                    html += "<td>" + row.nick + "</td>";
-                    html += "<td>" + row.value + "</td>";
-                } else {
-                    html += "<td></td><td></td>";
-                }
-            });
-
-            var buddy = buddyRows[i];
-
-            if (buddy) {
-                html += "<td>" + buddy.nick + "</td>";
-                html += "<td>" + buddy.value + "</td>";
+            if (row) {
+                html += "<td>" + row.nick + "</td>";
+                html += "<td>" + row.value + "</td>";
             } else {
                 html += "<td></td><td></td>";
             }
+        });
 
-            html += "</tr>";
-        }
-
-        html += "</table>";
-
-        $("#MRN").append(html);
-		$("#MRN_TABLE").before("<div>"+$(".detail_info h3").text()+"</div>"	//대회제목추가
-				+"<div>\'"+new Date().toLocaleString('sv')+"</div>"	//조회일시추가
-				); 
-		
-		
-		document.getElementById("MRN_TABLE").scrollIntoView({
-		    behavior: "smooth",
-		    block: "start"
-		});
+        html += "</tr>";
     }
+
+    html += "</table>";
+
+    $("#MRN").append(html);
+
+    $("#MRN_TABLE").before(
+        "<div>" + $(".detail_info h3").text() + "</div>"
+		+"<div>"+$("div .status").text()+"</div>"	//대회기간
+        +"<div>조회일시:" + new Date().toLocaleString('sv') + "</div>"
+    );
+
+    document.getElementById("MRN_TABLE").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
 
     async function start() {
         await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
