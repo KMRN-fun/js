@@ -350,7 +350,7 @@ function drawOneTable(result) {
     html += "<td colspan='2'>多기록</td>";
 
     otherTabs.forEach(function (tab) {
-        html += "<td colspan='2'>" + tab.name + "</td>";
+        html += "<td colspan='3'>" + tab.name + "</td>";
     });
 
     html += "</tr>";
@@ -368,6 +368,7 @@ function drawOneTable(result) {
     otherTabs.forEach(function (tab) {
         html += "<td>별명</td>";
         html += "<td>" + tab.name + "</td>";
+		html += "<td>롱/니/홀</td>";
     });
 
     html += "</tr>";
