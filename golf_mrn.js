@@ -1,227 +1,202 @@
 //(function () {
 
-    var WAIT_TAB = 500;
-    var WAIT_PAGE = 500;
-    var WAIT_CHANGE_TIMEOUT = 1200;
+	var WAIT_TAB = 500;
+	var WAIT_PAGE = 500;
+	var WAIT_CHANGE_TIMEOUT = 1200;
 
-    function loadScript(src) {
-        return new Promise(function (resolve, reject) {
-            if (window.jQuery) {
-                resolve();
-                return;
-            }
+	function loadScript(src) {
+		return new Promise(function (resolve, reject) {
+			if (window.jQuery) {
+				resolve();
+				return;
+			}
 
-            var script = document.createElement("script");
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
+			var script = document.createElement("script");
+			script.src = src;
+			script.onload = resolve;
+			script.onerror = reject;
+			document.head.appendChild(script);
+		});
+	}
 
-    function sleep(ms) {
-        return new Promise(function (resolve) {
-            setTimeout(resolve, ms);
-        });
-    }
+	function sleep(ms) {
+		return new Promise(function (resolve) {
+			setTimeout(resolve, ms);
+		});
+	}
 
-    function cleanNick(nick) {
-        nick = (nick || "").trim();
+	function cleanNick(nick) {
+		nick = (nick || "").trim();
 
-        if (nick.indexOf("(") > -1) {
-            nick = nick.substring(0, nick.indexOf("("));
-        }
+		if (nick.indexOf("(") > -1) {
+			nick = nick.substring(0, nick.indexOf("("));
+		}
 
-        return nick.trim();
-    }
+		return nick.trim();
+	}
 
-    function getActiveTabName() {
-        return $(".gft_sub_tab").find(".on").text().trim();
-    }
+	function getActiveTabName() {
+		return $(".gft_sub_tab").find(".on").text().trim();
+	}
 
-    function getPageArea() {
-        if ($("#divpagearea").length > 0) {
-            return $("#divpagearea");
-        }
+	function getPageArea() {
+		if ($("#divpagearea").length > 0) {
+			return $("#divpagearea");
+		}
 
-        return $("#miniround_paging");
-    }
+		return $("#miniround_paging");
+	}
 
-    function getCurrentTableSignature() {
-        var arr = [];
+	function collectCurrentRows(subTabName) {
+		var rows = [];
 
-        $(".record_td tr").each(function () {
-            arr.push($(this).text().replace(/\s+/g, "").trim());
-        });
+		$(".record_td tr").each(function () {
+			var nick = $(this).find("td:eq(1)").text().trim();
+			var roundCnt = $(this).find("td:eq(2)").text().trim();
+			var score = $(this).find("td:eq(4)").text().trim();
 
-        return arr.join("|");
-    }
+			nick = cleanNick(nick);
 
-    function collectCurrentRows(subTabName) {
-        var rows = [];
+			if (nick !== "") {
+				rows.push({
+					nick: nick,
+					value: subTabName === "합산" ? roundCnt : score
+				});
+			}
+		});
 
-        $(".record_td tr").each(function () {
-            var nick = $(this).find("td:eq(1)").text().trim();
-            var roundCnt = $(this).find("td:eq(2)").text().trim();
-            var score = $(this).find("td:eq(4)").text().trim();
+		return rows;
+	}
 
-            nick = cleanNick(nick);
+	function getPageNumbers() {
+		var nums = [];
 
-            if (nick !== "") {
-                rows.push({
-                    nick: nick,
-                    value: subTabName === "합산" ? roundCnt : score
-                });
-            }
-        });
+		getPageArea().find("a").each(function () {
+			var txt = $(this).text().trim();
 
-        return rows;
-    }
+			if (txt !== "" && !isNaN(txt)) {
+				nums.push(parseInt(txt, 10));
+			}
+		});
 
-    function getPageNumbers() {
-        var nums = [];
+		nums = nums.filter(function (v, i, arr) {
+			return arr.indexOf(v) === i;
+		});
 
-        getPageArea().find("a").each(function () {
-            var txt = $(this).text().trim();
+		nums.sort(function (a, b) {
+			return a - b;
+		});
 
-            if (txt !== "" && !isNaN(txt)) {
-                nums.push(parseInt(txt, 10));
-            }
-        });
+		return nums;
+	}
 
-        nums = nums.filter(function (v, i, arr) {
-            return arr.indexOf(v) === i;
-        });
+	function findPageLink(pageNo) {
+		var found = null;
 
-        nums.sort(function (a, b) {
-            return a - b;
-        });
+		getPageArea().find("a").each(function () {
+			var txt = $(this).text().trim();
 
-        return nums;
-    }
+			if (txt === String(pageNo)) {
+				found = this;
+				return false;
+			}
+		});
 
-    function findPageLink(pageNo) {
-        var found = null;
+		return found;
+	}
 
-        getPageArea().find("a").each(function () {
-            var txt = $(this).text().trim();
+	function clickPageNo(pageNo) {
+		var page = findPageLink(pageNo);
 
-            if (txt === String(pageNo)) {
-                found = this;
-                return false;
-            }
-        });
+		if (!page) {
+			console.warn("페이지 링크 없음:", pageNo);
+			return false;
+		}
 
-        return found;
-    }
+		console.log("페이지 클릭:", pageNo);
+		page.click();
 
-    function clickPageNo(pageNo) {
-        var page = findPageLink(pageNo);
-
-        if (!page) {
-            console.warn("페이지 링크 없음:", pageNo);
-            return false;
-        }
-
-        console.log("페이지 클릭:", pageNo);
-        page.click();
-
-        return true;
-    }
-
-    async function waitTableChanged(beforeSignature) {
-        var start = Date.now();
-
-        while (Date.now() - start < WAIT_CHANGE_TIMEOUT) {
-            await sleep(200);
-
-            var nowSignature = getCurrentTableSignature();
-
-            if (nowSignature !== "" && nowSignature !== beforeSignature) {
-                return true;
-            }
-        }
-
-        return false;
-    }
+		return true;
+	}
 
 	function rowsSignature(rows) {
-	    return rows.map(function (r) {
-	        return r.nick + "|" + r.value;
-	    }).join("||");
+		return rows.map(function (r) {
+			return r.nick + "|" + r.value;
+		}).join("||");
 	}
-async function movePageAndCollect(pageNo, subTabName, beforeRows) {
-    var beforeSig = rowsSignature(beforeRows);
 
-    for (var retry = 0; retry < 3; retry++) {
-        clickPageNo(pageNo);
+	async function movePageAndCollect(pageNo, subTabName, beforeRows) {
+		var beforeSig = rowsSignature(beforeRows);
 
-        await sleep(WAIT_PAGE);
+		for (var retry = 0; retry < 3; retry++) {
+			clickPageNo(pageNo);
 
-        var afterRows = collectCurrentRows(subTabName);
-        var afterSig = rowsSignature(afterRows);
+			await sleep(WAIT_PAGE);
 
-        if (afterRows.length > 0 && afterSig !== beforeSig) {
-            console.log(
-                "수집:",
-                subTabName,
-                pageNo + "페이지",
-                afterRows.length + "건",
-                "retry=" + retry
-            );
+			var afterRows = collectCurrentRows(subTabName);
+			var afterSig = rowsSignature(afterRows);
 
-            return afterRows;
-        }
+			if (afterRows.length > 0 && afterSig !== beforeSig) {
+				console.log(
+					"수집:",
+					subTabName,
+					pageNo + "페이지",
+					afterRows.length + "건",
+					"retry=" + retry
+				);
 
-        console.warn(
-            subTabName,
-            pageNo + "페이지 데이터 동일. 재시도",
-            retry + 1
-        );
+				return afterRows;
+			}
 
-        await sleep(300);
-    }
+			console.warn(
+				subTabName,
+				pageNo + "페이지 데이터 동일. 재시도",
+				retry + 1
+			);
 
-    console.warn(
-        subTabName,
-        pageNo + "페이지 최종 실패. 중복 방지로 skip"
-    );
+			await sleep(300);
+		}
 
-    return [];
-}
+		console.warn(
+			subTabName,
+			pageNo + "페이지 최종 실패. 중복 방지로 skip"
+		);
 
-async function collectPages(subTabName) {
-    var rows = [];
+		return [];
+	}
 
-    await sleep(300);
+	async function collectPages(subTabName) {
+		var rows = [];
 
-    var currentRows = collectCurrentRows(subTabName);
+		await sleep(300);
 
-    console.log("수집:", subTabName, "1페이지", currentRows.length + "건");
+		var currentRows = collectCurrentRows(subTabName);
 
-    rows = rows.concat(currentRows);
+		console.log("수집:", subTabName, "1페이지", currentRows.length + "건");
 
-    var pageNumbers = getPageNumbers();
+		rows = rows.concat(currentRows);
 
-    for (var i = 0; i < pageNumbers.length; i++) {
-        var pageNo = pageNumbers[i];
+		var pageNumbers = getPageNumbers();
 
-        if (pageNo === 1) continue;
+		for (var i = 0; i < pageNumbers.length; i++) {
+			var pageNo = pageNumbers[i];
 
-        var pageRows = await movePageAndCollect(
-            pageNo,
-            subTabName,
-            currentRows
-        );
+			if (pageNo === 1) continue;
 
-        if (pageRows.length > 0) {
-            rows = rows.concat(pageRows);
-            currentRows = pageRows;
-        }
-    }
+			var pageRows = await movePageAndCollect(
+				pageNo,
+				subTabName,
+				currentRows
+			);
 
-    return rows;
-}
+			if (pageRows.length > 0) {
+				rows = rows.concat(pageRows);
+				currentRows = pageRows;
+			}
+		}
+
+		return rows;
+	}
 
 	async function collectBuddyRowsFromTotalTab() {
 		var buddyRows = [];
@@ -267,183 +242,335 @@ async function collectPages(subTabName) {
 		return buddyRows;
 	}
 
-    async function collectTabs() {
-        var tabs = $(".gft_sub_tab ul li a").toArray();
+	async function collectLnwRowsFromCourseTab() {
+		var lnw = [];
 
-        if (tabs.length === 0) {
-            alert("탭을 찾지 못했습니다.");
-            return {
-                tabResults: [],
-                buddyRows: []
-            };
-        }
+		var distanceLabel = $("label[for='con_distance']");
 
-        var orderedTabs = tabs.slice(1).concat(tabs.slice(0, 1));
+		if (distanceLabel.length === 0) {
+			console.warn("롱기/니어 label 없음");
+			return lnw;
+		}
 
-        var tabResults = [];
-        var buddyRows = [];
+		console.log("롱기/니어 클릭");
 
-        for (var i = 0; i < orderedTabs.length; i++) {
-            var tabId = $(orderedTabs[i]).attr("id");
+		distanceLabel[0].click();
 
-            if (!tabId) continue;
+		await sleep(1000);
 
-            console.log("탭 클릭:", tabId);
+		var longNick = cleanNick(
+			$(".left").find(".client_nick.incell_tbl").eq(0).text()
+		);
 
-            document.getElementById(tabId).click();
+		var longValue = $(".left").find(".total_score").eq(0).text().trim();
 
-            await sleep(WAIT_TAB);
+		if (longNick !== "" || longValue !== "") {
+			lnw.push({
+				type: "LONG",
+				label: "롱기",
+				nick: longNick,
+				value: longValue
+			});
+		}
 
-            var subTabName = getActiveTabName();
+		var nearNick = cleanNick(
+			$(".right").find(".client_nick.incell_tbl").eq(0).text()
+		);
 
-            console.log("현재 탭:", subTabName);
+		var nearValue = $(".right").find(".total_score").eq(0).text().trim();
 
-            var rows = await collectPages(subTabName);
+		if (nearNick !== "" || nearValue !== "") {
+			lnw.push({
+				type: "NEAR",
+				label: "니어",
+				nick: nearNick,
+				value: nearValue
+			});
+		}
 
-            if (subTabName === "합산") {
-                buddyRows = await collectBuddyRowsFromTotalTab();
-            }
+		/*
+			홀인원 추가 시 여기에 con_holeinone 클릭 후 아래 형태로 push.
 
-            tabResults.push({
-                name: subTabName,
-                rows: rows
-            });
-        }
+			lnw.push({
+				type: "HOLEINONE",
+				label: "홀인원",
+				nick: nick,
+				value: holeInfo
+			});
+		*/
 
-        return {
-            tabResults: tabResults,
-            buddyRows: buddyRows
-        };
-    }
-function drawOneTable(result) {
-    $("#MRN").empty();
+		console.log("롱니홀 수집:", lnw);
 
-    var tabResults = result.tabResults || [];
-    var buddyRows = result.buddyRows || [];
+		return lnw;
+	}
 
-    var totalTab = tabResults.filter(function (tab) {
-        return tab.name === "합산";
-    })[0];
+	function makeLnwTable(tabResults) {
+		var courseTabs = tabResults.filter(function (tab) {
+			return tab.name !== "합산";
+		});
 
-    var otherTabs = tabResults.filter(function (tab) {
-        return tab.name !== "합산";
-    });
+		if (courseTabs.length === 0) {
+			return "";
+		}
 
-    var maxRow = 0;
+		function getLnwText(tab, type) {
+			var text = "";
 
-    tabResults.forEach(function (tab) {
-        if (tab.rows.length > maxRow) maxRow = tab.rows.length;
-    });
+			(tab.lnw || []).forEach(function (item) {
+				if (item.type === type) {
+					text = item.nick + " " + item.value;
+				}
+			});
 
-    if (buddyRows.length > maxRow) maxRow = buddyRows.length;
+			return text;
+		}
 
-    var html = "";
+		var html = "";
 
-    html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
-    html += "<tr>";
-    html += "<td rowspan='2'>순번</td>";
+		html += "<table id='MRN_TABLE2' border='1' style='border-collapse:collapse; font-size:12px; white-space:nowrap;'>";
 
-    if (totalTab) {
-        html += "<td colspan='2'>합산</td>";
-    }
+		html += "<tr>";
+		html += "<td>종류</td>";
 
-    html += "<td colspan='2'>多기록</td>";
+		courseTabs.forEach(function (tab) {
+			html += "<td>" + tab.name + "</td>";
+		});
 
-    otherTabs.forEach(function (tab) {
-        html += "<td colspan='3'>" + tab.name + "</td>";
-    });
+		html += "</tr>";
 
-    html += "</tr>";
+		html += "<tr>";
+		html += "<td>롱기</td>";
 
-    html += "<tr>";
+		courseTabs.forEach(function (tab) {
+			html += "<td>" + getLnwText(tab, "LONG") + "</td>";
+		});
 
-    if (totalTab) {
-        html += "<td>별명</td>";
-        html += "<td>라운드수</td>";
-    }
+		html += "</tr>";
 
-    html += "<td>별명</td>";
-    html += "<td>버디갯수</td>";
+		html += "<tr>";
+		html += "<td>니어</td>";
 
-    otherTabs.forEach(function (tab) {
-        html += "<td>별명</td>";
-        html += "<td>" + tab.name + "</td>";
-		html += "<td>롱/니/홀</td>";
-    });
+		courseTabs.forEach(function (tab) {
+			html += "<td>" + getLnwText(tab, "NEAR") + "</td>";
+		});
 
-    html += "</tr>";
+		html += "</tr>";
 
-    for (var i = 0; i < maxRow; i++) {
-        html += "<tr>";
-        html += "<td>" + (i + 1) + "</td>";
+		html += "<tr>";
+		html += "<td>홀인원</td>";
 
-        if (totalTab && totalTab.rows[i]) {
-            html += "<td>" + totalTab.rows[i].nick + "</td>";
-            html += "<td>" + totalTab.rows[i].value + "</td>";
-        } else if (totalTab) {
-            html += "<td></td><td></td>";
-        }
+		courseTabs.forEach(function (tab) {
+			html += "<td>" + getLnwText(tab, "HOLEINONE") + "</td>";
+		});
 
-        var buddy = buddyRows[i];
+		html += "</tr>";
 
-        if (buddy) {
-            html += "<td>" + buddy.nick + "</td>";
-            html += "<td>" + buddy.value + "</td>";
-        } else {
-            html += "<td></td><td></td>";
-        }
+		html += "</table>";
 
-        otherTabs.forEach(function (tab) {
-            var row = tab.rows[i];
+		return html;
+	}
 
-            if (row) {
-                html += "<td>" + row.nick + "</td>";
-                html += "<td>" + row.value + "</td>";
-            } else {
-                html += "<td></td><td></td>";
-            }
-        });
+	async function collectTabs() {
+		var tabs = $(".gft_sub_tab ul li a").toArray();
 
-        html += "</tr>";
-    }
+		if (tabs.length === 0) {
+			alert("탭을 찾지 못했습니다.");
+			return {
+				tabResults: [],
+				buddyRows: []
+			};
+		}
 
-    html += "</table>";
+		var orderedTabs = tabs.slice(1).concat(tabs.slice(0, 1));
 
-    $("#MRN").append(html);
+		var tabResults = [];
+		var buddyRows = [];
 
-    $("#MRN_TABLE").before(
-        "<div>" + $(".detail_info h3").text() + "</div>"
-		+"<div>"+$("div .status").text()+"</div>"	//대회기간
-        +"<div>조회일시:" + new Date().toLocaleString('sv') + "</div>"
-    );
+		for (var i = 0; i < orderedTabs.length; i++) {
+			var tabId = $(orderedTabs[i]).attr("id");
 
-    document.getElementById("MRN_TABLE").scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
-}
+			if (!tabId) continue;
 
-    async function start() {
-        await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
+			console.log("탭 클릭:", tabId);
 
-        if ($("#MRN").length === 0) {
-            $("#ranking_list").append("<div id='MRN'></div>");
-        } else {
-            $("#MRN").empty();
-        }
+			document.getElementById(tabId).click();
 
-        $("#MRN").append("<div>데이터 수집 중...</div>");
+			await sleep(WAIT_TAB);
 
-        var result = await collectTabs();
+			var subTabName = getActiveTabName();
 
-        drawOneTable(result);
+			console.log("현재 탭:", subTabName);
 
-        console.log("전체 수집 완료", result);
-    }
+			var rows = await collectPages(subTabName);
+			var lnw = [];
 
-    start().catch(function (e) {
-        console.error("실행 오류:", e);
-        alert("실행 중 오류 발생. 콘솔을 확인하세요.");
-    });
+			if (subTabName === "합산") {
+				buddyRows = await collectBuddyRowsFromTotalTab();
+			} else {
+				lnw = await collectLnwRowsFromCourseTab();
+			}
+
+			tabResults.push({
+				name: subTabName,
+				rows: rows,
+				lnw: lnw
+			});
+		}
+
+		return {
+			tabResults: tabResults,
+			buddyRows: buddyRows
+		};
+	}
+
+	function drawOneTable(result, drawOneTable) {
+		$("#MRN").empty();
+
+		var tabResults = result.tabResults || [];
+		var buddyRows = result.buddyRows || [];
+
+		var totalTab = tabResults.filter(function (tab) {
+			return tab.name === "합산";
+		})[0];
+
+		var otherTabs = tabResults.filter(function (tab) {
+			return tab.name !== "합산";
+		});
+
+		var maxRow = 0;
+
+		tabResults.forEach(function (tab) {
+			if (tab.rows.length > maxRow) {
+				maxRow = tab.rows.length;
+			}
+		});
+
+		if (buddyRows.length > maxRow) {
+			maxRow = buddyRows.length;
+		}
+
+		var html = "";
+
+		html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
+
+		html += "<tr>";
+		html += "<td rowspan='2'>순번</td>";
+
+		if (totalTab) {
+			html += "<td colspan='2'>합산</td>";
+		}
+
+		html += "<td colspan='2'>多기록</td>";
+
+		otherTabs.forEach(function (tab) {
+			html += "<td colspan='2'>" + tab.name + "</td>";
+		});
+
+		html += "</tr>";
+
+		html += "<tr>";
+
+		if (totalTab) {
+			html += "<td>별명</td>";
+			html += "<td>라운드수</td>";
+		}
+
+		html += "<td>별명</td>";
+		html += "<td>버디갯수</td>";
+
+		otherTabs.forEach(function (tab) {
+			html += "<td>별명</td>";
+			html += "<td>" + tab.name + "</td>";
+		});
+
+		html += "</tr>";
+
+		for (var i = 0; i < maxRow; i++) {
+			html += "<tr>";
+			html += "<td>" + (i + 1) + "</td>";
+
+			if (totalTab) {
+				var totalRow = totalTab.rows[i];
+
+				if (totalRow) {
+					html += "<td>" + totalRow.nick + "</td>";
+					html += "<td>" + totalRow.value + "</td>";
+				} else {
+					html += "<td></td><td></td>";
+				}
+			}
+
+			var buddy = buddyRows[i];
+
+			if (buddy) {
+				html += "<td>" + buddy.nick + "</td>";
+				html += "<td>" + buddy.value + "</td>";
+			} else {
+				html += "<td></td><td></td>";
+			}
+
+			otherTabs.forEach(function (tab) {
+				var row = tab.rows[i];
+
+				if (row) {
+					html += "<td>" + row.nick + "</td>";
+					html += "<td>" + row.value + "</td>";
+				} else {
+					html += "<td></td><td></td>";
+				}
+			});
+
+			html += "</tr>";
+		}
+
+		html += "</table>";
+
+		var mainHtml = "";
+
+		mainHtml += "<div>" + $(".glf_detail_info h3").text() + "</div>";
+		mainHtml += "<div>대회기간:" + $(".status").text().trim() + "</div>";
+		mainHtml += "<div>조회일시:" + drawOneTable.toLocaleString('sv') + "</div>";
+
+		mainHtml += "<div id='MRN_WRAP' "
+				 + "style='display:flex; flex-wrap:nowrap; align-items:flex-start; gap:10px; margin-top:5px;'>";
+
+		mainHtml += html;
+		mainHtml += makeLnwTable(tabResults);
+
+		mainHtml += "</div>";
+
+		$("#MRN").append(mainHtml);
+		
+
+		document.getElementById("MRN_TABLE2").scrollIntoView({
+			behavior: "smooth",
+			block: "start"
+		});
+	}
+
+	async function start() {
+		 var collectStartTime = new Date();
+		 
+		await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
+
+		if ($("#MRN").length === 0) {
+			$("#ranking_list").append("<div id='MRN'></div>");
+		} else {
+			$("#MRN").empty();
+		}
+
+		$("#MRN").append("<div>데이터 수집 중...</div>");
+
+		var result = await collectTabs();
+
+		drawOneTable(result, collectStartTime);
+
+		console.log("전체 수집 완료", result);
+	}
+
+	start().catch(function (e) {
+		console.error("실행 오류:", e);
+		alert("실행 중 오류 발생. 콘솔을 확인하세요.");
+	});
 
 //})();
