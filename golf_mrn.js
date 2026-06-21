@@ -245,59 +245,85 @@
 	async function collectLnwRowsFromCourseTab() {
 		var lnw = [];
 
+		// 롱기 / 니어 수집
 		var distanceLabel = $("label[for='con_distance']");
 
-		if (distanceLabel.length === 0) {
+		if (distanceLabel.length > 0) {
+			console.log("롱기/니어 클릭");
+
+			distanceLabel[0].click();
+
+			await sleep(1000);
+
+			var longNick = cleanNick(
+				$(".left").find(".client_nick.incell_tbl").eq(0).text()
+			);
+
+			var longValue = $(".left").find(".total_score").eq(0).text().trim();
+
+			if (longNick !== "" || longValue !== "") {
+				lnw.push({
+					type: "LONG",
+					label: "롱기",
+					nick: longNick,
+					value: longValue
+				});
+			}
+
+			var nearNick = cleanNick(
+				$(".right").find(".client_nick.incell_tbl").eq(0).text()
+			);
+
+			var nearValue = $(".right").find(".total_score").eq(0).text().trim();
+
+			if (nearNick !== "" || nearValue !== "") {
+				lnw.push({
+					type: "NEAR",
+					label: "니어",
+					nick: nearNick,
+					value: nearValue
+				});
+			}
+		} else {
 			console.warn("롱기/니어 label 없음");
-			return lnw;
 		}
 
-		console.log("롱기/니어 클릭");
+		// 홀인원 수집
+		var holeinoneLabel = $("label[for='con_holeinone']");
 
-		distanceLabel[0].click();
+		if (holeinoneLabel.length > 0) {
+			console.log("홀인원 클릭");
 
-		await sleep(1000);
+			holeinoneLabel[0].click();
 
-		var longNick = cleanNick(
-			$(".left").find(".client_nick.incell_tbl").eq(0).text()
-		);
+			await sleep(1000);
 
-		var longValue = $(".left").find(".total_score").eq(0).text().trim();
+			var holeSection = $("section").eq(2);
 
-		if (longNick !== "" || longValue !== "") {
-			lnw.push({
-				type: "LONG",
-				label: "롱기",
-				nick: longNick,
-				value: longValue
+			holeSection.find("table tbody tr").each(function (idx, item) {
+				var cols = [];
+				
+				
+				$(this).find("td").each(function () {
+					var txt = $(this).text().replace(/\s+/g, " ").trim();
+
+					if (txt !== "") {
+						cols.push(txt);
+					}
+				});
+
+				if (cols.length > 0) {
+					lnw.push({
+						type: "HOLEINONE",
+						label: "홀인원",
+						nick: "",
+						value: cols.join(" | ")
+					});
+				}
 			});
+		} else {
+			console.warn("홀인원 label 없음");
 		}
-
-		var nearNick = cleanNick(
-			$(".right").find(".client_nick.incell_tbl").eq(0).text()
-		);
-
-		var nearValue = $(".right").find(".total_score").eq(0).text().trim();
-
-		if (nearNick !== "" || nearValue !== "") {
-			lnw.push({
-				type: "NEAR",
-				label: "니어",
-				nick: nearNick,
-				value: nearValue
-			});
-		}
-
-		/*
-			홀인원 추가 시 여기에 con_holeinone 클릭 후 아래 형태로 push.
-
-			lnw.push({
-				type: "HOLEINONE",
-				label: "홀인원",
-				nick: nick,
-				value: holeInfo
-			});
-		*/
 
 		console.log("롱니홀 수집:", lnw);
 
@@ -313,21 +339,36 @@
 			return "";
 		}
 
-		function getLnwText(tab, type) {
-			var text = "";
+		function getLnwText(tab, type, fixedRows) {
+			var arr = [];
 
 			(tab.lnw || []).forEach(function (item) {
 				if (item.type === type) {
-					text = item.nick + " " + item.value;
+					if (item.nick !== "") {
+						arr.push(item.nick + " " + item.value);
+					} else {
+						arr.push(item.value);
+					}
 				}
 			});
 
-			return text;
+			if (fixedRows) {
+
+				if (arr.length > fixedRows) {
+					arr = arr.slice(0, fixedRows);
+				}
+
+				while (arr.length < fixedRows) {
+					arr.push("&nbsp;");
+				}
+			}
+
+			return arr.join("<br>");
 		}
 
 		var html = "";
 
-		html += "<table id='MRN_TABLE2' border='1' style='border-collapse:collapse; font-size:12px; white-space:nowrap;'>";
+		html += "<table id='MRN_TABLE2' border='1' style='border-collapse:collapse; font-size:12px; margin-bottom:8px;'>";
 
 		html += "<tr>";
 		html += "<td>종류</td>";
@@ -354,14 +395,35 @@
 			html += "<td>" + getLnwText(tab, "NEAR") + "</td>";
 		});
 
-		html += "</tr>";
+for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 
-		html += "<tr>";
-		html += "<td>홀인원</td>";
+    html += "<tr>";
 
-		courseTabs.forEach(function (tab) {
-			html += "<td>" + getLnwText(tab, "HOLEINONE") + "</td>";
-		});
+    if (holeIdx === 0) {
+        html += "<td rowspan='3'>홀인원</td>";
+    }
+
+    courseTabs.forEach(function (tab) {
+
+        var holeList = [];
+
+        (tab.lnw || []).forEach(function (item) {
+            if (item.type === "HOLEINONE") {
+                holeList.push(item.value);
+            }
+        });
+
+        html += "<td>";
+
+        if (holeIdx < holeList.length) {
+            html += holeList[holeIdx];
+        }
+
+        html += "</td>";
+    });
+
+    html += "</tr>";
+}
 
 		html += "</tr>";
 
@@ -423,7 +485,7 @@
 		};
 	}
 
-	function drawOneTable(result, drawOneTable) {
+	function drawOneTable(result, collectStartTime) {
 		$("#MRN").empty();
 
 		var tabResults = result.tabResults || [];
@@ -527,17 +589,12 @@
 
 		var mainHtml = "";
 
-		mainHtml += "<div>" + $(".glf_detail_info h3").text() + "</div>";
+		mainHtml += "<div>" + $(".glf_detail_info h3").text().trim() + "</div>";
 		mainHtml += "<div>대회기간:" + $(".status").text().trim() + "</div>";
-		mainHtml += "<div>조회일시:" + drawOneTable.toLocaleString('sv') + "</div>";
+		mainHtml += "<div>조회일시:" + collectStartTime.toLocaleString('sv') + "</div>";
 
-		mainHtml += "<div id='MRN_WRAP' "
-				 + "style='display:flex; flex-wrap:nowrap; align-items:flex-start; gap:10px; margin-top:5px;'>";
-
-		mainHtml += html;
 		mainHtml += makeLnwTable(tabResults);
-
-		mainHtml += "</div>";
+		mainHtml += html;
 
 		$("#MRN").append(mainHtml);
 		
