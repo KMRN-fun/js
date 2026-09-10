@@ -224,6 +224,11 @@
 		}
 
 		birdieBox.find("table tbody tr").each(function () {
+			// 내 스코어 강조행(my_score_tab)은 순위표와 중복되므로 수집에서 제외
+			if ($(this).hasClass("my_score_tab") || $(this).find(".my_score_tab").length > 0) {
+				return;
+			}
+
 			var nick = $(this).find("td:eq(1) span").first().text().trim();
 			var birdieCnt = $(this).find("td.round_count strong").first().text().trim();
 
