@@ -289,6 +289,25 @@
 		await sleep(800);
 	}
 
+	// 라디오(보기) 전환 직후 고정 시간만 기다리면, 해당 화면의 데이터가
+	// 아직 로드되기 전(빈 값)인 상태를 그대로 읽어버릴 수 있다.
+	// checkFn이 true를 반환할 때까지(=데이터가 실제로 나타날 때까지) 폴링해서
+	// 니어/롱기/홀인원 같은 화면도 수집이 끝까지 끝난 뒤에 다음 단계로 넘어가게 한다.
+	async function waitUntil(checkFn, maxRetries, waitMs) {
+		maxRetries = maxRetries || 6;
+		waitMs = waitMs || 250;
+
+		for (var i = 0; i < maxRetries; i++) {
+			await sleep(waitMs);
+
+			if (checkFn()) {
+				return true;
+			}
+		}
+
+		return checkFn();
+	}
+
 	async function collectBuddyRowsFromTotalTab() {
 		var buddyRows = [];
 
@@ -303,7 +322,9 @@
 
 		multiLabel[0].click();
 
-		await sleep(1000);
+		await waitUntil(function () {
+			return $(".multi_play").find("table tbody tr").length > 0;
+		});
 
 		var birdieBox = $(".multi_play").filter(function () {
 			return $(this).find("h4").first().text().replace(/\s+/g, "").indexOf("버디") > -1;
@@ -349,7 +370,10 @@
 
 			distanceLabel[0].click();
 
-			await sleep(1000);
+			await waitUntil(function () {
+				return $(".left").find(".total_score").eq(0).text().trim() !== "" ||
+					$(".right").find(".total_score").eq(0).text().trim() !== "";
+			});
 
 			var longNick = cleanNick(
 				$(".left").find(".client_nick.incell_tbl").eq(0).text()
@@ -392,7 +416,9 @@
 
 			holeinoneLabel[0].click();
 
-			await sleep(1000);
+			await waitUntil(function () {
+				return $("section").eq(2).find("table tbody tr").length > 0;
+			});
 
 			var holeSection = $("section").eq(2);
 
@@ -602,6 +628,14 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 		};
 	}
 
+	function getNearValueForNick(tab, nick) {
+		var match = (tab.lnw || []).filter(function (item) {
+			return item.type === "NEAR" && item.nick === nick;
+		})[0];
+
+		return match ? match.value : "";
+	}
+
 	function drawOneTable(result, collectStartTime) {
 		$("#MRN").empty();
 
@@ -642,7 +676,7 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 		html += "<td colspan='2'>多기록</td>";
 
 		otherTabs.forEach(function (tab) {
-			html += "<td colspan='2'>" + tab.name + "</td>";
+			html += "<td colspan='3'>" + tab.name + "</td>";
 		});
 
 		html += "</tr>";
@@ -660,6 +694,7 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 		otherTabs.forEach(function (tab) {
 			html += "<td>별명</td>";
 			html += "<td>" + tab.name + "</td>";
+			html += "<td>니어</td>";
 		});
 
 		html += "</tr>";
@@ -694,8 +729,9 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 				if (row) {
 					html += "<td>" + row.nick + "</td>";
 					html += "<td>" + row.value + "</td>";
+					html += "<td>" + getNearValueForNick(tab, row.nick) + "</td>";
 				} else {
-					html += "<td></td><td></td>";
+					html += "<td></td><td></td><td></td>";
 				}
 			});
 
