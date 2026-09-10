@@ -1,8 +1,6 @@
 //(function () {
 
 	var WAIT_TAB = 500;
-	var WAIT_PAGE = 500;
-	var WAIT_CHANGE_TIMEOUT = 1200;
 
 	function loadScript(src) {
 		return new Promise(function (resolve, reject) {
@@ -125,15 +123,41 @@
 		}).join("||");
 	}
 
+	// 클릭 직후 고정된 시간만 기다리면, AJAX가 아직 안 끝난 "로딩 중" DOM을
+	// 그대로 읽어버려 스코어가 비거나 이전 화면 데이터가 섞이는 문제가 생긴다.
+	// 두 번 연속으로 같은(그리고 비어있지 않은) 결과가 나올 때까지 폴링해서
+	// 실제로 렌더링이 끝난 시점의 데이터만 신뢰한다.
+	async function waitForStableRows(subTabName, maxRetries, waitMs) {
+		maxRetries = maxRetries || 6;
+		waitMs = waitMs || 250;
+
+		var prevSig = null;
+
+		for (var i = 0; i < maxRetries; i++) {
+			await sleep(waitMs);
+
+			var rows = collectCurrentRows(subTabName);
+			var sig = rowsSignature(rows);
+
+			if (rows.length > 0 && sig === prevSig) {
+				return rows;
+			}
+
+			prevSig = sig;
+		}
+
+		console.warn(subTabName, "데이터 안정화 대기 시간 초과. 마지막 상태로 진행");
+
+		return collectCurrentRows(subTabName);
+	}
+
 	async function movePageAndCollect(pageNo, subTabName, beforeRows) {
 		var beforeSig = rowsSignature(beforeRows);
 
 		for (var retry = 0; retry < 3; retry++) {
 			clickPageNo(pageNo);
 
-			await sleep(WAIT_PAGE);
-
-			var afterRows = collectCurrentRows(subTabName);
+			var afterRows = await waitForStableRows(subTabName);
 			var afterSig = rowsSignature(afterRows);
 
 			if (afterRows.length > 0 && afterSig !== beforeSig) {
@@ -168,9 +192,14 @@
 	async function collectPages(subTabName) {
 		var rows = [];
 
-		await sleep(300);
+		// 이전 실행에서 남은 페이지 상태(2페이지 이상에 머물러 있는 등)가
+		// 남아있을 수 있으므로, 수집 시작 전 반드시 1페이지로 되돌린다.
+		if (findPageLink(1)) {
+			console.log(subTabName, "1페이지로 초기화");
+			clickPageNo(1);
+		}
 
-		var currentRows = collectCurrentRows(subTabName);
+		var currentRows = await waitForStableRows(subTabName);
 
 		console.log("수집:", subTabName, "1페이지", currentRows.length + "건");
 
@@ -196,6 +225,68 @@
 		}
 
 		return rows;
+	}
+
+	function getDefaultViewLabel() {
+		// con_multiple(多기록) / con_distance(롱기니어) / con_holeinone(홀인원)은
+		// 같은 라디오 그룹에 속한 보기 전환 버튼이라고 가정하고, 그 그룹에서
+		// 우리가 알고 있는 3개를 제외한 나머지(=기본 "전체기록" 보기)를 찾는다.
+		var knownIds = ["con_multiple", "con_distance", "con_holeinone"];
+
+		var refInput = $("#con_multiple");
+
+		if (refInput.length === 0) {
+			refInput = $("#con_distance");
+		}
+
+		if (refInput.length === 0) {
+			refInput = $("#con_holeinone");
+		}
+
+		if (refInput.length === 0) {
+			return null;
+		}
+
+		var groupName = refInput.attr("name");
+
+		if (!groupName) {
+			return null;
+		}
+
+		var defaultInput = $("input[name='" + groupName + "']").filter(function () {
+			return knownIds.indexOf($(this).attr("id")) === -1;
+		}).first();
+
+		if (defaultInput.length === 0) {
+			return null;
+		}
+
+		var defaultId = defaultInput.attr("id");
+
+		if (!defaultId) {
+			return null;
+		}
+
+		return $("label[for='" + defaultId + "']");
+	}
+
+	async function resetToDefaultView() {
+		// 스크립트를 재실행했을 때, 직전 실행이 마지막으로 클릭해둔
+		// 多기록/롱기니어/홀인원 보기가 그대로 남아있으면 정상 스코어 테이블
+		// (.record_td)이 아닌 다른 화면을 읽어와 데이터가 꼬인다.
+		// 수집을 시작하기 전에 항상 기본(전체기록) 보기로 되돌려 초기화한다.
+		var defaultLabel = getDefaultViewLabel();
+
+		if (!defaultLabel || defaultLabel.length === 0) {
+			console.warn("기본(전체기록) 보기 라디오를 찾지 못해 초기화를 건너뜁니다.");
+			return;
+		}
+
+		console.log("보기 초기화: 기본(전체기록) 보기로 되돌림");
+
+		defaultLabel[0].click();
+
+		await sleep(800);
 	}
 
 	async function collectBuddyRowsFromTotalTab() {
@@ -444,6 +535,8 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 
 		var subTabName = "스코어";
 
+		await resetToDefaultView();
+
 		var rows = await collectPages(subTabName);
 		var lnw = await collectLnwRowsFromCourseTab();
 		var buddyRows = await collectBuddyRowsFromTotalTab();
@@ -484,6 +577,8 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 			var subTabName = getActiveTabName();
 
 			console.log("현재 탭:", subTabName);
+
+			await resetToDefaultView();
 
 			var rows = await collectPages(subTabName);
 			var lnw = [];
@@ -628,8 +723,8 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 	}
 
 	async function start() {
-		 var collectStartTime = new Date();
-		 
+		var collectStartTime = new Date();
+
 		await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
 
 		if ($("#MRN").length === 0) {
