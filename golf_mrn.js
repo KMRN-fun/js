@@ -432,15 +432,32 @@ for (var holeIdx = 0; holeIdx < 3; holeIdx++) {
 		return html;
 	}
 
+	async function collectSingleCourse() {
+		// 코스가 1개뿐이라 .gft_sub_tab 자체가 없는 대회.
+		// "합산" 탭 개념이 없으므로 스코어 컬럼(td:eq(4)) 기준으로 바로 수집한다.
+		console.log("탭 없음: 코스 1개 대회로 판단, 현재 페이지에서 바로 수집");
+
+		var subTabName = "스코어";
+
+		var rows = await collectPages(subTabName);
+		var lnw = await collectLnwRowsFromCourseTab();
+		var buddyRows = await collectBuddyRowsFromTotalTab();
+
+		return {
+			tabResults: [{
+				name: subTabName,
+				rows: rows,
+				lnw: lnw
+			}],
+			buddyRows: buddyRows
+		};
+	}
+
 	async function collectTabs() {
 		var tabs = $(".gft_sub_tab ul li a").toArray();
 
 		if (tabs.length === 0) {
-			alert("탭을 찾지 못했습니다.");
-			return {
-				tabResults: [],
-				buddyRows: []
-			};
+			return await collectSingleCourse();
 		}
 
 		var orderedTabs = tabs.slice(1).concat(tabs.slice(0, 1));
