@@ -975,6 +975,27 @@
 		});
 	}
 
+	var MRN_STEP = "시작";
+
+	// 모바일처럼 콘솔을 볼 수 없는 환경용: 오류 내용을 알림창과 화면에 표시
+	function showError(e) {
+		var msg = "오류 단계: " + MRN_STEP + "\n" +
+			"메시지: " + (e && e.message ? e.message : e) + "\n" +
+			(e && e.stack ? e.stack.split("\n").slice(0, 4).join("\n") : "");
+
+		console.error("실행 오류:", e);
+
+		try {
+			if (window.jQuery && $("#MRN").length > 0) {
+				$("#MRN").empty().append(
+					$("<pre style='white-space:pre-wrap; color:#c00; font-size:12px;'></pre>").text(msg)
+				);
+			}
+		} catch (err) {}
+
+		alert(msg);
+	}
+
 	async function start() {
 		var collectStartTime = new Date();
 
@@ -988,16 +1009,17 @@
 
 		$("#MRN").append("<div>데이터 수집 중...</div>");
 
+		MRN_STEP = "데이터 수집";
+
 		var result = await collectTabs();
+
+		MRN_STEP = "표 그리기";
 
 		drawOneTable(result, collectStartTime);
 
 		console.log("전체 수집 완료", result);
 	}
 
-	start().catch(function (e) {
-		console.error("실행 오류:", e);
-		alert("실행 중 오류 발생. 콘솔을 확인하세요.");
-	});
+	start().catch(showError);
 
 //})();
