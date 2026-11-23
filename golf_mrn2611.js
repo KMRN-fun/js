@@ -632,7 +632,7 @@
 			return item.type === "NEAR" && item.nick === nick;
 		})[0];
 
-		return match ? match.value : "";
+		return match ? "[" + match.rank + "] " + match.value : "";
 	}
 
 	// 합산 탭 행의 td 구성 (코스 개수 1~3개 모두 대응)
@@ -658,7 +658,10 @@
 			}
 		}
 
-		var adjText = cells[len - 2];
+		// 보정치 td에는 "15 도움말 실력등급15 시스템보정치0 ..." 처럼 부가 설명이 붙어 있으므로
+		// 맨 앞의 숫자(부호 포함)만 사용한다.
+		var adjMatch = String(cells[len - 2] || "").match(/^\s*([+-]?\d+)/);
+		var adjText = adjMatch ? adjMatch[1] : "";
 		var finalText = cells[len - 1];
 
 		var adjNum = toInt(adjText);
