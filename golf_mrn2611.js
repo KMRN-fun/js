@@ -353,6 +353,54 @@
 		return buddyRows;
 	}
 
+	// 롱기(.left) / 니어(.right) 목록을 현재 DOM에서 읽는다.
+	function readDistanceLists() {
+		function readSide(sel) {
+			var $nicks = $(sel).find(".client_nick.incell_tbl");
+			var $scores = $(sel).find(".total_score");
+			var cnt = Math.max($nicks.length, $scores.length);
+			var list = [];
+
+			for (var i = 0; i < cnt; i++) {
+				var nick = cleanNick($nicks.eq(i).text());
+				var value = $scores.eq(i).text().trim();
+
+				if (nick === "" && value === "") continue;
+
+				list.push({ nick: nick, value: value, rank: i + 1 });
+			}
+
+			return list;
+		}
+
+		return { long: readSide(".left"), near: readSide(".right") };
+	}
+
+	// 롱기와 니어가 "둘 다" 채워지고, 연속 두 번 같은 결과가 나올 때까지 기다린다.
+	// (한쪽만 먼저 렌더링된 상태를 읽어 니어가 통째로 빠지는 문제 방지)
+	async function waitForDistanceLists() {
+		var prevSig = null;
+		var last = null;
+
+		for (var i = 0; i < 16; i++) {
+			await sleep(250);
+
+			last = readDistanceLists();
+
+			var sig = JSON.stringify(last);
+
+			if (last.long.length > 0 && last.near.length > 0 && sig === prevSig) {
+				return last;
+			}
+
+			prevSig = sig;
+		}
+
+		console.warn("롱기/니어 목록 대기 시간 초과 (한쪽 기록이 없을 수도 있음)", last);
+
+		return last;
+	}
+
 	async function collectLnwRowsFromCourseTab() {
 		var lnw = [];
 
@@ -364,52 +412,35 @@
 
 			distanceLabel[0].click();
 
-			await waitUntil(function () {
-				return $(".left").find(".total_score").eq(0).text().trim() !== "" ||
-					$(".right").find(".total_score").eq(0).text().trim() !== "";
-			});
+			var dist = await waitForDistanceLists();
 
 			// 롱기: 1위만
-			var longNick = cleanNick(
-				$(".left").find(".client_nick.incell_tbl").eq(0).text()
-			);
-
-			var longValue = $(".left").find(".total_score").eq(0).text().trim();
-
-			if (longNick !== "" || longValue !== "") {
+			if (dist.long.length > 0) {
 				lnw.push({
 					type: "LONG",
 					label: "롱기",
-					nick: longNick,
-					value: longValue,
+					nick: dist.long[0].nick,
+					value: dist.long[0].value,
 					rank: 1
 				});
 			}
 
 			// 니어: 1위부터 전체 (2위 이후 포함)
-			var $nearNicks = $(".right").find(".client_nick.incell_tbl");
-			var $nearScores = $(".right").find(".total_score");
-			var nearCnt = Math.max($nearNicks.length, $nearScores.length);
 			var seenNear = {};
 
-			for (var n = 0; n < nearCnt; n++) {
-				var nearNick = cleanNick($nearNicks.eq(n).text());
-				var nearValue = $nearScores.eq(n).text().trim();
-
-				if (nearNick === "" && nearValue === "") continue;
-
+			dist.near.forEach(function (item) {
 				// 같은 닉네임이 여러 번 나오면 가장 앞(=가까운) 기록만 사용
-				if (nearNick !== "" && seenNear[nearNick]) continue;
-				seenNear[nearNick] = true;
+				if (item.nick !== "" && seenNear[item.nick]) return;
+				seenNear[item.nick] = true;
 
 				lnw.push({
 					type: "NEAR",
 					label: "니어",
-					nick: nearNick,
-					value: nearValue,
-					rank: n + 1
+					nick: item.nick,
+					value: item.value,
+					rank: item.rank
 				});
-			}
+			});
 
 			console.log("니어 수집:", lnw.filter(function (x) { return x.type === "NEAR"; }));
 		} else {
