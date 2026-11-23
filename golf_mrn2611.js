@@ -712,11 +712,11 @@
 
 	// 숫자(타수/기록) 셀: 우측 정렬 + 오른쪽 여백
 	function numTd(v) {
-		return "<td style='text-align:right; padding-right:8px;'>" + v + "</td>";
+		return "<td style='text-align:right !important; padding-right:8px !important;'>" + v + "</td>";
 	}
 
 	function numTh(v) {
-		return "<td style='text-align:right; padding-right:8px;'>" + v + "</td>";
+		return "<td style='text-align:right !important; padding-right:8px !important;'>" + v + "</td>";
 	}
 
 	function drawOneTable(result, collectStartTime) {
