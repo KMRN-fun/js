@@ -2,6 +2,10 @@
 
 	var WAIT_TAB = 500;
 
+	// 니어 합산 순위에 포함할 대상: true면 모든 코스에 니어 기록이 있는 사람만 포함
+	// (false면 기록이 있는 코스만 합산하므로 코스 수가 적은 사람이 유리해짐)
+	var NEAR_TOTAL_REQUIRE_ALL = true;
+
 	function loadScript(src) {
 		return new Promise(function (resolve, reject) {
 			if (window.jQuery) {
@@ -719,6 +723,48 @@
 		return "<td style='text-align:right !important; padding-right:8px !important;'>" + v + "</td>";
 	}
 
+	// 코스별 니어 기록을 닉네임별로 합산해 짧은 순으로 정렬
+	function calcNearTotals(otherTabs) {
+		var map = {};
+		var order = [];
+
+		otherTabs.forEach(function (tab) {
+			(tab.lnw || []).forEach(function (item) {
+				if (item.type !== "NEAR" || item.nick === "") return;
+
+				var v = parseFloat(String(item.value).replace(/[^\d.]/g, ""));
+
+				if (isNaN(v)) return;
+
+				if (!map[item.nick]) {
+					map[item.nick] = { nick: item.nick, sum: 0, cnt: 0 };
+					order.push(item.nick);
+				}
+
+				map[item.nick].sum += v;
+				map[item.nick].cnt++;
+			});
+		});
+
+		var list = order.map(function (nick) {
+			return map[nick];
+		}).filter(function (x) {
+			return !NEAR_TOTAL_REQUIRE_ALL || x.cnt === otherTabs.length;
+		});
+
+		// 짧은 거리 순 (같으면 먼저 등장한 순서 유지)
+		list = list.map(function (x, idx) {
+			x.idx = idx;
+			return x;
+		}).sort(function (a, b) {
+			return a.sum - b.sum || a.idx - b.idx;
+		});
+
+		return list.map(function (x) {
+			return { nick: x.nick, value: (Math.round(x.sum * 100) / 100).toFixed(2) + "m" };
+		});
+	}
+
 	function drawOneTable(result, collectStartTime) {
 		$("#MRN").empty();
 
@@ -745,6 +791,12 @@
 			maxRow = buddyRows.length;
 		}
 
+		var nearTotals = calcNearTotals(otherTabs);
+
+		if (nearTotals.length > maxRow) {
+			maxRow = nearTotals.length;
+		}
+
 		var html = "";
 
 		html += "<table id='MRN_TABLE' border='1' style='border-collapse:collapse; font-size:12px;'>";
@@ -761,6 +813,8 @@
 		otherTabs.forEach(function (tab) {
 			html += "<td colspan='3'>" + tab.name + "</td>";
 		});
+
+		html += "<td colspan='2'>니어 합산</td>";
 
 		html += "</tr>";
 
@@ -782,6 +836,9 @@
 			html += numTh(tab.name);
 			html += numTh("니어");
 		});
+
+		html += "<td>별명</td>";
+		html += numTh("합산니어");
 
 		html += "</tr>";
 
@@ -825,6 +882,15 @@
 					html += "<td></td><td></td><td></td>";
 				}
 			});
+
+			var nt = nearTotals[i];
+
+			if (nt) {
+				html += "<td>" + nt.nick + "</td>";
+				html += numTd(nt.value);
+			} else {
+				html += "<td></td><td></td>";
+			}
 
 			html += "</tr>";
 		}
