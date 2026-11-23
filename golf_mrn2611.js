@@ -710,6 +710,15 @@
 		};
 	}
 
+	// 숫자(타수/기록) 셀: 우측 정렬 + 오른쪽 여백
+	function numTd(v) {
+		return "<td style='text-align:right; padding-right:8px;'>" + v + "</td>";
+	}
+
+	function numTh(v) {
+		return "<td style='text-align:right; padding-right:8px;'>" + v + "</td>";
+	}
+
 	function drawOneTable(result, collectStartTime) {
 		$("#MRN").empty();
 
@@ -759,19 +768,19 @@
 
 		if (totalTab) {
 			html += "<td>별명</td>";
-			html += "<td>라운드수</td>";
-			html += "<td>스트로크</td>";
-			html += "<td>보정치</td>";
-			html += "<td>최종스코어</td>";
+			html += numTh("라운드수");
+			html += numTh("스트로크");
+			html += numTh("보정치");
+			html += numTh("최종스코어");
 		}
 
 		html += "<td>별명</td>";
-		html += "<td>버디갯수</td>";
+		html += numTh("버디갯수");
 
 		otherTabs.forEach(function (tab) {
 			html += "<td>별명</td>";
-			html += "<td>" + tab.name + "</td>";
-			html += "<td>니어</td>";
+			html += numTh(tab.name);
+			html += numTh("니어");
 		});
 
 		html += "</tr>";
@@ -787,10 +796,10 @@
 					var t = calcTotalCols(totalRow);
 
 					html += "<td>" + totalRow.nick + "</td>";
-					html += "<td>" + totalRow.value + "</td>";
-					html += "<td>" + t.stroke + "</td>";
-					html += "<td>" + t.adj + "</td>";
-					html += "<td>" + t.final + "</td>";
+					html += numTd(totalRow.value);
+					html += numTd(t.stroke);
+					html += numTd(t.adj);
+					html += numTd(t.final);
 				} else {
 					html += "<td></td><td></td><td></td><td></td><td></td>";
 				}
@@ -800,7 +809,7 @@
 
 			if (buddy) {
 				html += "<td>" + buddy.nick + "</td>";
-				html += "<td>" + buddy.value + "</td>";
+				html += numTd(buddy.value);
 			} else {
 				html += "<td></td><td></td>";
 			}
@@ -810,8 +819,8 @@
 
 				if (row) {
 					html += "<td>" + row.nick + "</td>";
-					html += "<td>" + row.value + "</td>";
-					html += "<td>" + getNearValueForNick(tab, row.nick) + "</td>";
+					html += numTd(row.value);
+					html += numTd(getNearValueForNick(tab, row.nick));
 				} else {
 					html += "<td></td><td></td><td></td>";
 				}
