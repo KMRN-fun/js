@@ -765,6 +765,51 @@
 		});
 	}
 
+	// 니어 합계: 모든 코스에 니어 기록이 있는 사람만 합산하고, 짧은 순으로 순위를 매긴다.
+	function calcNearSumRanks(totalTab, otherTabs) {
+		var result = {};
+		var list = [];
+
+		if (!totalTab || otherTabs.length === 0) return result;
+
+		totalTab.rows.forEach(function (r) {
+			var cents = 0;
+			var ok = true;
+
+			otherTabs.forEach(function (tab) {
+				var m = (tab.lnw || []).filter(function (x) {
+					return x.type === "NEAR" && x.nick === r.nick;
+				})[0];
+
+				var v = m ? parseFloat(String(m.value).replace(/[^\d.]/g, "")) : NaN;
+
+				if (isNaN(v)) {
+					ok = false;
+				} else {
+					cents += Math.round(v * 100);
+				}
+			});
+
+			if (ok) {
+				list.push({ nick: r.nick, cents: cents });
+			}
+		});
+
+		list.sort(function (a, b) { return a.cents - b.cents; });
+
+		list.forEach(function (item, idx) {
+			// 동점이면 같은 순위
+			var rank = (idx > 0 && list[idx - 1].cents === item.cents) ? result[list[idx - 1].nick].rank : idx + 1;
+
+			result[item.nick] = {
+				rank: rank,
+				text: "[" + rank + "] " + (item.cents / 100).toFixed(2) + "m"
+			};
+		});
+
+		return result;
+	}
+
 	function drawOneTable(result, collectStartTime) {
 		$("#MRN").empty();
 
@@ -778,6 +823,8 @@
 		var otherTabs = tabResults.filter(function (tab) {
 			return tab.name !== "합산";
 		});
+
+		var nearSums = calcNearSumRanks(totalTab, otherTabs);
 
 		var maxRow = 0;
 
@@ -805,7 +852,7 @@
 		html += "<td rowspan='2'>순번</td>";
 
 		if (totalTab) {
-			html += "<td colspan='5'>합산</td>";
+			html += "<td colspan='6'>합산</td>";
 		}
 
 		html += "<td colspan='2'>多기록</td>";
@@ -826,6 +873,7 @@
 			html += numTh("스트로크");
 			html += numTh("보정치");
 			html += numTh("최종스코어");
+			html += numTh("니어합계");
 		}
 
 		html += "<td>별명</td>";
@@ -857,8 +905,9 @@
 					html += numTd(t.stroke);
 					html += numTd(t.adj);
 					html += numTd(t.final);
+					html += numTd(nearSums[totalRow.nick] ? nearSums[totalRow.nick].text : "");
 				} else {
-					html += "<td></td><td></td><td></td><td></td><td></td>";
+					html += "<td></td><td></td><td></td><td></td><td></td><td></td>";
 				}
 			}
 
@@ -916,7 +965,7 @@
 
 		mainHtml += makeLnwTable(tabResults);
 		mainHtml += html;
-		mainHtml += "<div style='font-size:11px;'>* 스트로크 = 코스별 스코어 합계</div>";
+		mainHtml += "<div style='font-size:11px;'>* 스트로크 = 코스별 스코어 합계 / 니어합계 = 모든 코스에 니어 기록이 있는 경우만 합산, 짧은 순 순위</div>";
 
 		$("#MRN").append(mainHtml);
 
