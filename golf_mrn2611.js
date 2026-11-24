@@ -3,7 +3,7 @@
 	var WAIT_TAB = 500;
 
 	// 어떤 버전이 실행됐는지 화면에서 확인하기 위한 표기 (수정할 때마다 올려주세요)
-	var MRN_VERSION = "2611-v8";
+	var MRN_VERSION = "2611-v9";
 
 	function loadScript(src) {
 		return new Promise(function (resolve, reject) {
@@ -901,8 +901,12 @@
 		mainHtml += "<div>조회일시:" + collectStartTime.toLocaleString('sv') + "</div>";
 		mainHtml += "<div style='font-size:11px; color:#888;'>script " + MRN_VERSION + "</div>";
 
+		// 줄바꿈 방지: 모든 셀 nowrap. 표가 화면보다 넓어지면 가로 스크롤로 볼 수 있게 감싼다.
+		mainHtml += "<style>#MRN_TABLE td, #MRN_TABLE2 td { white-space: nowrap !important; }</style>";
+		mainHtml += "<div style='max-width:100%; overflow-x:auto;'>";
 		mainHtml += makeLnwTable(tabResults);
 		mainHtml += html;
+		mainHtml += "</div>";
 		mainHtml += "<div style='font-size:11px;'>* 스트로크 = 코스별 스코어 합계 / 니어합계 = 모든 코스에 니어 기록이 있는 경우만 합산, 짧은 순 순위</div>";
 
 		$("#MRN").append(mainHtml);
