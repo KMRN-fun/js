@@ -3,7 +3,7 @@
 	var WAIT_TAB = 500;
 
 	// 어떤 버전이 실행됐는지 화면에서 확인하기 위한 표기 (수정할 때마다 올려주세요)
-	var MRN_VERSION = "2611-v10";
+	var MRN_VERSION = "2611-v11";
 
 	function loadScript(src) {
 		return new Promise(function (resolve, reject) {
@@ -818,19 +818,19 @@
 
 		if (totalTab) {
 			html += "<td>별명</td>";
-			html += numTh("라운드수");
+			html += numTh("라운드");
 			html += numTh("스트로크");
 			html += numTh("보정치");
-			html += numTh("최종스코어");
+			html += numTh("최종");
 			html += numTh("니어합계");
 		}
 
 		html += "<td>별명</td>";
-		html += numTh("버디갯수");
+		html += numTh("버디수");
 
 		otherTabs.forEach(function (tab) {
 			html += "<td>별명</td>";
-			html += numTh(tab.name);
+			html += numTh("타수");
 			html += numTh("니어");
 		});
 
