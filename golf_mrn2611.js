@@ -3,7 +3,7 @@
 	var WAIT_TAB = 500;
 
 	// 어떤 버전이 실행됐는지 화면에서 확인하기 위한 표기 (수정할 때마다 올려주세요)
-	var MRN_VERSION = "2611-v9";
+	var MRN_VERSION = "2611-v10";
 
 	function loadScript(src) {
 		return new Promise(function (resolve, reject) {
@@ -903,13 +903,40 @@
 
 		// 줄바꿈 방지: 모든 셀 nowrap. 표가 화면보다 넓어지면 가로 스크롤로 볼 수 있게 감싼다.
 		mainHtml += "<style>#MRN_TABLE td, #MRN_TABLE2 td { white-space: nowrap !important; }</style>";
-		mainHtml += "<div style='max-width:100%; overflow-x:auto;'>";
+		mainHtml += "<div id='MRN_WRAP' style='max-width:100%; overflow-x:auto;'>";
 		mainHtml += makeLnwTable(tabResults);
 		mainHtml += html;
 		mainHtml += "</div>";
 		mainHtml += "<div style='font-size:11px;'>* 스트로크 = 코스별 스코어 합계 / 니어합계 = 모든 코스에 니어 기록이 있는 경우만 합산, 짧은 순 순위</div>";
 
 		$("#MRN").append(mainHtml);
+
+		// 표가 화면 폭보다 넓으면 폭에 맞게 자동 축소 (가로 스크롤 없이 한 번에 캡쳐)
+		try {
+			var wrap = document.getElementById("MRN_WRAP");
+			var box = document.getElementById("MRN");
+			var need = 0;
+
+			["MRN_TABLE", "MRN_TABLE2"].forEach(function (id) {
+				var el = document.getElementById(id);
+
+				if (el && el.offsetWidth > need) {
+					need = el.offsetWidth;
+				}
+			});
+
+			var avail = box.clientWidth;
+
+			if (wrap && need > avail && avail > 0) {
+				var z = Math.max(0.4, Math.floor(avail / need * 100) / 100);
+
+				wrap.style.zoom = z;
+
+				console.log("자동 축소 적용: zoom=" + z, "표폭=" + need, "영역폭=" + avail);
+			}
+		} catch (err) {
+			console.warn("자동 축소 실패", err);
+		}
 
 		document.getElementById("MRN_TABLE2").scrollIntoView({
 			behavior: "smooth",
